@@ -92,8 +92,8 @@ int ESP8266Client::available()
 		delayMicroseconds((1 / esp8266._baud) * 10 * 1E6);
 		// Check again just to be sure:
 		available = esp8266.available();
-	}
-	return esp8266.available();
+	} 
+	return available;
 }
 
 int ESP8266Client::read()
@@ -102,7 +102,22 @@ int ESP8266Client::read()
 }
 String ESP8266Client::smartRead()
 {
-	int size = available();
+	unsigned long timeout = 100;
+	unsigned long t = millis();
+    String data = "";
+    while(millis() - t < timeout) {
+    	if(available() > 0) {
+	        char r = esp8266.read();
+	        if(data.equals("Unlink")) {
+				return data;
+	        } else {
+	            data += r;  
+                t = millis();
+	        }
+	    }
+    }
+    return data;
+	/*int size = available();
 	String retVal{};
 	while (size)
 	{
@@ -114,7 +129,7 @@ String ESP8266Client::smartRead()
 		}
 		size = available();
 	}
-	return retVal;
+	return retVal;*/
 }
 
 int ESP8266Client::read(uint8_t *buf, size_t size)
@@ -151,12 +166,18 @@ uint8_t ESP8266Client::connected()
 	// If data is available, assume we're connected. Otherwise,
 	// we'll try to send the status query, and will probably end 
 	// up timing out if data is still coming in.
+	auto stat = status();
 	if (_socket == ESP8266_SOCK_NOT_AVAIL)
+	{
 		return 0;
+	}
 	else if (available() > 0)
 		return 1;
-	else if (status() == ESP8266_STATUS_CONNECTED)
+	else if (stat == ESP8266_STATUS_CONNECTED)
 		return 1;
+	Serial.println(stat);
+	Serial.println(status());
+	Serial.println(ESP8266_STATUS_CONNECTED);
 	return 0;
 }
 

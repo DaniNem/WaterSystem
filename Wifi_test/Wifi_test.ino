@@ -11,7 +11,8 @@
 //////////////////////////////
 // Replace these two character strings with the name and
 // password of your WiFi network.
-const char mySSID[] = "HomeSweetHome";
+//const char mySSID[] = "HomeSweetHome";
+const char mySSID[] = "Andrey-home";
 const char myPSK[] = "ch96Q82A";
 const char ECHO[] = "Echo";
 
@@ -81,7 +82,7 @@ void serverDemo()
       //auto t = client.available();
       //Serial.print("t = ");
       //Serial.println(t);
-      if (client.peek()) 
+      if (client.available()) 
       {
         String c = client.smartRead();
         Serial.println(c); 
@@ -157,6 +158,7 @@ void connectESP8266()
   //  3 - ESP8266_MODE_STAAP - Station/AP combo
   // Use esp8266.getMode() to check which mode it's in:
   int retVal = esp8266.getMode();
+  Serial.println(retVal);
   if (retVal != ESP8266_MODE_STA)
   { // If it's not in station mode.
     // Use esp8266.setMode([mode]) to set it to a specified
@@ -176,7 +178,8 @@ void connectESP8266()
   // connected. 0 indicates disconnected. (Negative values
   // equate to communication errors.)
   retVal = esp8266.status();
-  if (retVal <= 0)
+  Serial.println(retVal);
+  if (retVal == ESP8266_STATUS_CONNECTED || retVal == ESP8266_STATUS_NOWIFI)
   {
     Serial.print(F("Connecting to "));
     Serial.println(mySSID);

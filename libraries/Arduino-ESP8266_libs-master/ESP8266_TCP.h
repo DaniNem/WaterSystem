@@ -11,10 +11,13 @@
 #else
 #include "WProgram.h"
 #endif
-
+#include "util/ESP8266_TYPE.h"
+#include "util/ESP8266_AT.h"
 #include <Stream.h>
 #include <avr/pgmspace.h>
-#include <IPAddress.h>
+//#include <IPAddress.h>
+
+
 
 #define WIFI_MODE_STATION			0x01
 #define WIFI_MODE_AP				0x02
@@ -44,101 +47,118 @@
 #define WIFI_NEW_ALREADY_CONNECT	0x07
 #define WIFI_NEW_ETC				0x08
 
+///////////////////////////////
+// Command Response Timeouts //
+///////////////////////////////
+#define COMMAND_RESPONSE_TIMEOUT 1000
+#define COMMAND_PING_TIMEOUT 3000
+#define WIFI_CONNECT_TIMEOUT 30000
+#define COMMAND_RESET_TIMEOUT 5000
+#define CLIENT_CONNECT_TIMEOUT 5000
+
+
+#define ESP8266_SOCK_NOT_AVAIL 255
+
 
 // library interface description
 
 class ESP8266_TCP {
 
 	public:
-  
-	ESP8266_TCP();
-	void begin(Stream *serial, Stream *serialDebug, int pinReset);
-	void begin(Stream *serial, int pinReset);
+		ESP8266_TCP();
+		void begin(Stream *serial, Stream *serialDebug, int pinReset);
+		void begin(Stream *serial, int pinReset);
+		bool test();
+		int getIP(char * ip);
+		int getAP(char * ssid);
+		void reset();
+		void hardReset();
+		int status();
+		int updateStatus();
+		bool closeTCPServer();
+		int connect(const char * ssid);
+		int connect(const char * ssid, const char * pwd);
+		void openTCPServer(int port, int timeout);
+		void connectTCP(String ip, int port);
+		void closeTCPConnection();
+		void closeTCPConnection(int id);
 
+		int getRunningState();
 
-	bool test();
-	void getIP();
-	void reset();
-	void hardReset();
+		int getId();
+		String getMessage();
+		void clearNewMessage();
+		int isNewDataComing();
 
-	bool closeTCPServer();
-	//bool isTCPEnabled();
-	void openTCPServer(int port, int timeout);
-	void connectTCP(String ip, int port);
-	void closeTCPConnection();
-	void closeTCPConnection(int id);
-
-	int getRunningState();
-
-	int getId();
-	String getMessage();
-	void clearNewMessage();
-
-	String connectAccessPoint(String ssid, String pass);
-	void openAccessPoint(String ssid, String pass, int channel);
-	
-	int isNewDataComing(byte type);
-
-	bool send(String message);
-	bool send(int id, String message);
-	
-	void printClientList();
-
+		bool send(String message);
+		int send(int id, String message);
+		
+		void printClientList();
+		int  getMode();
+		int setMode(esp8266_wifi_mode mode);
 	private:	
 
-	void waitingForReset();
-	void waitingForReset(unsigned long timeout);
-	void waitingForHardReset();
+		void waitingForReset();
+		void waitingForReset(unsigned long timeout);
+		void waitingForHardReset();
 
-	String waitingForJoin();
-	void waitingForTCPConnection();
+		void waitingForTCPConnection();
 
-	bool setMode(int mode);
-	bool setMux(int mux);
+		int setMux(uint8_t mux);
 
-	bool enableTCPServer(int port);
-	bool setTCPTimeout(int timeout);
+		bool enableTCPServer(int port);
+		bool setTCPTimeout(int timeout);
 
-	void flush();
+		void flush();
+		void setRunningState(int state);
 
-	//bool waitForSendStatus();
+		void debugPrintln(String str);
+		void debugPrint(String str);
 
-	void setRunningState(int state);
+		void clearBuffer();
+		void clearBufferInner();
+		int findChar(String str, int start, char c);
+		void clear();
 
-	void debugPrintln(String str);
-	void debugPrint(String str);
+		void write(String str);
+		
+		int available();
 
-	bool setAP(String ssid, String pass, int channel);
-	bool isNewAPSetting(String ssid, String pass, int channel);
+		String read();
+		String readData();
+		String readData(unsigned long timeout);
+		String readTCPData();
+		//////////////////////////
+		// Command Send/Receive //
+		//////////////////////////
+		
+		void sendCommand(const char * cmd, enum esp8266_command_type type = ESP8266_CMD_EXECUTE, const char * params = NULL);
+		
+		int  readForResponse(const char * rsp, unsigned int timeout);
+		int readForResponses(const char * pass, const char * fail, unsigned int timeout);
+		
+		/// searchBuffer([test]) - Search buffer for string [test]
+		/// Success: Returns pointer to beginning of string
+		/// Fail: returns NULL
+		//! TODO: Fix this function so it searches circularly
+		char * searchBuffer(const char * test);
+		/// readByteToBuffer() - Read first byte from UART receive buffer
+		/// and store it in rxBuffer.
+		unsigned int readByteToBuffer();
 
+		bool TCPConnected;
+		bool TCPEnable;
+		bool isDebug;
 
-	void clearBuffer();
-	int findChar(String str, int start, char c);
-	void clear();
-
-	void write(String str);
-	
-	int available();
-
-	String read();
-	String readData();
-	String readData(unsigned long timeout);
-	String readTCPData();
-
-	bool TCPConnected;
-	bool TCPEnable;
-	bool isDebug;
-
-	int pinReset;
-	
-	int clientId;
-	String clientMessage;
-	
-	Stream *serial;
-	Stream *serialDebug;
-
-	int runningState;
+		int pinReset;
+		
+		int clientId;
+		String clientMessage;
+		
+		Stream *serial;
+		Stream *serialDebug;
+		esp8266_status _status;
+		int runningState;
 };
-
 #endif
 

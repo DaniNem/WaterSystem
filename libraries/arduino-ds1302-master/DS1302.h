@@ -13,6 +13,7 @@
 class Time {
  public:
   enum Day {
+	kUnknown    = 0,
     kSunday    = 1,
     kMonday    = 2,
     kTuesday   = 3,
@@ -35,7 +36,9 @@ class Time {
   Time(uint16_t yr, uint8_t mon, uint8_t date,
        uint8_t hr, uint8_t min, uint8_t sec,
        Day day);
-
+  Time(uint16_t yr, uint8_t mon, uint8_t date,
+       uint8_t hr, uint8_t min, uint8_t sec,
+       uint8_t day);
   uint8_t sec;
   uint8_t min;
   uint8_t hr;
@@ -43,6 +46,9 @@ class Time {
   uint8_t mon;
   Day day;
   uint16_t yr;
+  
+  long operator-(const Time& rhl);
+  bool operator==(const Time& rhl);
 };
 
 // An interface to the Dallas Semiconductor DS1302 Real Time Clock (RTC) chip.

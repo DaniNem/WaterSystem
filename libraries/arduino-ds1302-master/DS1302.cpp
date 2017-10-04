@@ -87,7 +87,25 @@ Time::Time(const uint16_t yr, const uint8_t mon, const uint8_t date,
   this->sec  = sec;
   this->day  = day;
 }
-
+Time::Time(const uint16_t yr, const uint8_t mon, const uint8_t date,
+           const uint8_t hr, const uint8_t min, const uint8_t sec,
+           const uint8_t day) {
+  this->yr   = yr;
+  this->mon  = mon;
+  this->date = date;
+  this->hr   = hr;
+  this->min  = min;
+  this->sec  = sec;
+  this->day  = static_cast<Day>(day);;
+}
+long Time::operator-(const Time& rhl)
+{
+	return (rhl.day - this->day )*24*60 + (rhl.hr - this->hr) * 60 + (rhl.min - this->min);
+}
+bool Time::operator==(const Time& rhl)
+{
+	return (this->day == rhl.day) && (this->hr == rhl.hr) && (this->min == rhl.min);
+}
 DS1302::DS1302(const uint8_t ce_pin, const uint8_t io_pin,
                const uint8_t sclk_pin) {
   ce_pin_ = ce_pin;

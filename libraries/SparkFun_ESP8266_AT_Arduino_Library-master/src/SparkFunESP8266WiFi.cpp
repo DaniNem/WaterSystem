@@ -301,6 +301,8 @@ int16_t ESP8266Class::status()
 	int16_t statusRet = updateStatus();
 	if (statusRet > 0)
 	{
+		if (_status.stat  == 0)// TODO
+			return status();
 		return _status.stat;
 		/*
 		switch (_status.stat)
