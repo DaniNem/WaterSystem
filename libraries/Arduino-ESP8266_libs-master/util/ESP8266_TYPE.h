@@ -17,7 +17,7 @@ Distributed as-is; no warranty is given.
 #define ESP8266_TYPE_H
 
 #include <IPAddress.h>
-#define ESP8266_MAX_SOCK_NUM 5
+#define ESP8266_MAX_SOCK_NUM 2 //shuold be 5
 
 enum esp8266_cmd_rsp {
 	ESP8266_CMD_BAD = -5,

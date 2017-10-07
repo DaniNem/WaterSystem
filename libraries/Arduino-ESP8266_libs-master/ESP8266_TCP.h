@@ -70,6 +70,7 @@ class ESP8266_TCP {
 		void begin(Stream *serial, int pinReset);
 		bool test();
 		int getIP(char * ip);
+		bool setStaticIP(const char* IP, const char* subnet, const char* dg);
 		int getAP(char * ssid);
 		void reset();
 		void hardReset();
@@ -86,21 +87,21 @@ class ESP8266_TCP {
 		int getRunningState();
 
 		int getId();
-		String getMessage();
+		String& getMessage();
 		void clearNewMessage();
-		int isNewDataComing();
+		bool isNewDataComing();
 
 		bool send(String message);
 		int send(int id, String message);
 		
-		void printClientList();
+		//void printClientList();
 		int  getMode();
 		int setMode(esp8266_wifi_mode mode);
 	private:	
 
-		void waitingForReset();
-		void waitingForReset(unsigned long timeout);
-		void waitingForHardReset();
+		//void waitingForReset();
+		//void waitingForReset(unsigned long timeout);
+		//void waitingForHardReset();
 
 		void waitingForTCPConnection();
 
@@ -126,7 +127,7 @@ class ESP8266_TCP {
 
 		String read();
 		String readData();
-		String readData(unsigned long timeout);
+		//String readData(unsigned long timeout);
 		String readTCPData();
 		//////////////////////////
 		// Command Send/Receive //
@@ -134,7 +135,7 @@ class ESP8266_TCP {
 		
 		void sendCommand(const char * cmd, enum esp8266_command_type type = ESP8266_CMD_EXECUTE, const char * params = NULL);
 		
-		int  readForResponse(const char * rsp, unsigned int timeout);
+		int readForResponse(const char * rsp, unsigned int timeout);
 		int readForResponses(const char * pass, const char * fail, unsigned int timeout);
 		
 		/// searchBuffer([test]) - Search buffer for string [test]
@@ -146,7 +147,7 @@ class ESP8266_TCP {
 		/// and store it in rxBuffer.
 		unsigned int readByteToBuffer();
 
-		bool TCPConnected;
+		//bool TCPConnected;
 		bool TCPEnable;
 		bool isDebug;
 

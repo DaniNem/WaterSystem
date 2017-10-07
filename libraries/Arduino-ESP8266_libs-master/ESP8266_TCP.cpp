@@ -4,6 +4,7 @@
 ////////////////////////
 // Buffer Definitions //
 ////////////////////////
+//128
 #define ESP8266_RX_BUFFER_LEN 128 // Number of bytes in the serial receive buffer
 char esp8266RxBuffer[ESP8266_RX_BUFFER_LEN];
 unsigned int bufferHead; // Holds position of latest byte placed in buffer.
@@ -19,7 +20,6 @@ void ESP8266_TCP::begin(Stream *serial, Stream *serialDebug, int pinReset)
 	this->serial = serial;
 	this->serialDebug = serialDebug;
 	this->isDebug = true;
-	this->TCPConnected = false;
 	this->clientId = -1;
 	this->clientMessage = "";
 	this->runningState = WIFI_STATE_UNAVAILABLE;
@@ -33,7 +33,6 @@ void ESP8266_TCP::begin(Stream *serial, int pinReset)
 	this->pinReset = pinReset;
 	this->serial = serial;
 	this->isDebug = false;
-	this->TCPConnected = false;
 	this->clientId = -1;
 	this->clientMessage = "";
 	this->runningState = WIFI_STATE_UNAVAILABLE;
@@ -41,34 +40,14 @@ void ESP8266_TCP::begin(Stream *serial, int pinReset)
 
 }
 
-/*bool ESP8266_TCP::test() {
-	debugPrintln("In Test");
-	clearBuffer();
-	write("AT");
-	String data = readData();
-    debugPrintln(data);
-	if(data.equals("")) {
-    	debugPrintln("RESET");
-		hardReset();
-		return true;
-	}
-	data = readData();
-    debugPrintln(data);
-	if(data.equals("busy now ...")) {
-    	debugPrintln("RESET");
-		hardReset();
-		return true;
-	}
-	return readData().equals("OK"); 
-}
-*/
 
 
 
 void ESP8266_TCP::reset() {
 	clearBuffer();
 	write("AT+RST");
-	waitingForReset();
+	test();
+	//waitingForReset();
 }
 
 void ESP8266_TCP::hardReset() {
@@ -77,51 +56,6 @@ void ESP8266_TCP::hardReset() {
 	digitalWrite(this->pinReset, HIGH);
 	test();
 	//waitingForHardReset();
-}
-
-void ESP8266_TCP::waitingForReset() {
-	while(true) {
-		if(available() > 0) {
-			String data = readData(1000);
-		    debugPrintln(data);
-			if(data.substring(1, 4).equals("ets")) {
-    			debugPrintln("RESET");
-				delay(2000);
-				clearBuffer();
-				return;
-			}
-		}
-	}
-}
-
-void ESP8266_TCP::waitingForReset(unsigned long timeout) {
-	unsigned long t = millis();
-	while(millis() - t < timeout) {
-		if(available() > 0) {
-			String data = readData(1000);
-			if(data.substring(1, 4).equals("ets")) {
-    			debugPrintln("RESET");
-				delay(2000);
-				clearBuffer();
-				return;
-			}
-		}
-	}
-}
-
-void ESP8266_TCP::waitingForHardReset() {
-	unsigned long t = millis();
-	while(true) {
-		if(available() > 0) {
-			String data = readData(1000);
-			if(data.equals("ready")) {
-				debugPrintln("RESET");
-				delay(2000);
-				clearBuffer();
-				return;
-			}
-		}
-	}
 }
 
 
@@ -133,20 +67,6 @@ int ESP8266_TCP::setMux(uint8_t mux)
 	
 	return readForResponse(RESPONSE_OK, COMMAND_RESPONSE_TIMEOUT);
 }
-/*
-bool ESP8266_TCP::setMux(int mux) {
-	clearBuffer();
-	write("AT+CIPMUX=" + String(mux));
-	//debugPrintln(readData());
-	String data = readData();
-	debugPrintln(data);
-	if(data.equals("no change") || data.equals("OK")) 
-		return true;
-	data = readData();
-	debugPrintln(data);
-	return data.equals("OK"); 
-}
-*/
 
 bool ESP8266_TCP::enableTCPServer(int port) {
 	clearBuffer();
@@ -224,65 +144,10 @@ int ESP8266_TCP::getRunningState() {
 	return this->runningState;
 }
 
-void ESP8266_TCP::flush() {
+void ESP8266_TCP::flush() 
+{
 	this->serial->flush();
 }
-
-int ESP8266_TCP::isNewDataComing() {
-		String data = read();
-		if(!data.equals("")) {
-			if(data.substring(2, 6).equals("+IPD")) {
-				this->clientId = data.substring(7, 8).toInt();
-				int lastPosition = findChar(data, 9, ':');
-				int length = data.substring(9, lastPosition).toInt() + 1;
-
-				if(data.charAt(lastPosition + 1) == '\n') {
-					this->clientMessage = data.substring(lastPosition + 2, lastPosition + length + 1);
-				} else {
-					this->clientMessage = data.substring(lastPosition + 1, lastPosition + length);
-				}
-				setRunningState(WIFI_STATE_IDLE);
-				return WIFI_NEW_MESSAGE;
-			} else if(data.substring(3, 6).equals("ets")) {
-				//debugPrintln("RESET");
-				delay(2000);
-				clear();
-				return WIFI_NEW_RESET;
-			} else if((data.length() == 1 && data.charAt(0) == 0x0A) 
-					|| (data.substring(2, 4).equals("OK") && data.substring(6, 12).equals("Unlink"))) {
-				//debugPrintln("Disconnected");
-				this->TCPConnected = false;
-				setRunningState(WIFI_STATE_UNAVAILABLE);
-				return WIFI_NEW_DISCONNECTED;
-			} else if(data.substring(0, 4).equals("Link")
-					|| data.substring(2, 4).equals("Link") 
-					|| data.substring(5, 11).equals("Link")) {
-				setRunningState(WIFI_STATE_IDLE);
-				//debugPrintln("Connected");
-				this->TCPConnected = true;
-				return WIFI_NEW_CONNECTED;
-			} else if(data.substring(2, 9).equals("SEND OK")) {
-				delay(2000);
-				setRunningState(WIFI_STATE_IDLE);
-				//debugPrintln("Sent!!");
-				return WIFI_NEW_SEND_OK;
-			} else {
-				//debugPrintln("******");
-				//debugPrintln(data);
-				//debugPrintln(data.substring(2, 9));
-				debugPrintln("******");
-				//debugPrintln(data);
-				this->clientMessage = data;
-				debugPrintln(data);
-				//debugPrintln(data.substring(2, 4));
-				//debugPrintln(data.substring(6, 12));
-				return WIFI_NEW_ETC;
-			}
-		}
-		return WIFI_NEW_NONE;
-		//return false;
-}
-
 int ESP8266_TCP::findChar(String str, int start, char c) {
 	for(int i = start ; i < str.length() ; i++) {
 		if(str.charAt(i) == c)
@@ -295,7 +160,9 @@ int ESP8266_TCP::getId() {
 	return this->clientId;
 }
 
-String ESP8266_TCP::getMessage() {
+String& ESP8266_TCP::getMessage() {
+	//clearBuffer();
+	clearBufferInner();
 	return this->clientMessage;
 }
 
@@ -315,7 +182,7 @@ void ESP8266_TCP::clear() {
 	clearBuffer();
 	this->clientId = -1;
 	this->clientMessage = "";
-	this->TCPConnected = false;	
+	//this->TCPConnected = false;	
 }
 
 void ESP8266_TCP::debugPrintln(String str) {
@@ -406,17 +273,7 @@ int ESP8266_TCP::send(int linkID,String message )
 	
 	return rsp;
 }
-void ESP8266_TCP::printClientList() {
-	clearBuffer();
-	write("AT+CWLIF");
-	delay(1000);
-	debugPrintln(readData(100));
-	debugPrintln(readData(100));
-	debugPrintln(readData(100));
-	debugPrintln(readData(100));
-	debugPrintln(readData(100));
-	debugPrintln(readData(100));
-}
+
 
 int ESP8266_TCP::available() {
 	return this->serial->available();
@@ -425,31 +282,12 @@ int ESP8266_TCP::available() {
 String ESP8266_TCP::read() {
 	String data = readTCPData();
 	if(data.equals("Unlink")) {
-		this->TCPConnected = false;
+		//this->TCPConnected = false;
 		clearBuffer();
 		return "";
 	}
 	return data;
 }
-
-String ESP8266_TCP::readData(unsigned long timeout) {
-    String data = "";
-	unsigned long t = millis();
-    while(millis() - t < timeout) {
-        if(available() > 0) { 
-            char r = serial->read();
-            if (r == '\n') {
-                return data;
-            } else if(r == '\r') {
-            } else {
-                data += r;  
-                t = millis();
-            }
-        }
-    }
-    return "";
-}
-
 String ESP8266_TCP::readTCPData() {
 	unsigned long timeout = 100;
 	unsigned long t = millis();
@@ -488,6 +326,58 @@ bool ESP8266_TCP::test() {
 	} 
 }
 
+bool ESP8266_TCP::isNewDataComing(){
+	if (available())
+	{
+		unsigned long timeIn = millis();	// Timestamp coming into function
+		unsigned int received = 0; // received keeps track of number of chars read
+		unsigned int timeout = 100;
+		clearBufferInner();	// Clear the class receive buffer (esp8266RxBuffer)
+		while (timeIn + timeout > millis()) // While we haven't timed out
+		{
+			if (available()) // If data is available on UART RX
+			{
+				received += readByteToBuffer();
+		}
+		}
+		if (searchBuffer("+IPD"))
+		{	
+			char * p = strstr(esp8266RxBuffer,"+IPD");
+			if (p != NULL)
+			{
+					p += strlen("+IPD") + 1;
+					char * q = strchr(p, ',');
+					if (q == NULL) return ESP8266_RSP_UNKNOWN;
+					char temp[1];
+					memset(temp, 0, 1); // Clear tempOctet
+					
+					strncpy(temp, p, q-p); // Copy string to temp char array:
+					this->clientId =  atoi(temp);
+					p = ++q;
+					q = strchr(p, ':');
+					if (q == NULL) return ESP8266_RSP_UNKNOWN;
+					memset(temp, 0, 1); // Clear tempOctet
+					strncpy(temp, p, q-p); // Copy string to temp char array:
+					int length =  atoi(temp);
+					
+					//debugPrintln(String(length));
+					this->clientMessage = "";
+					q++;
+					for (int i = 0; i < length; i++)
+					{
+						this->clientMessage += *q;
+						q++;
+					}
+					//debugPrintln(this->clientMessage);
+					return true;
+			}
+			
+		}
+		return false;
+		
+	}
+	return false;
+}
 int ESP8266_TCP::getAP(char * ssid)
 {
 	sendCommand(ESP8266_CONNECT_AP, ESP8266_CMD_QUERY); // Send "AT+CWJAP?"
@@ -534,17 +424,22 @@ int ESP8266_TCP::getIP(char * ip) {
 	
 	return rsp; 
 }
-/*
-void ESP8266_TCP::getIP() {
-	clearBuffer();
-	write("AT+CIFSR");
-	String data = readData();
-    debugPrintln(data);
-	data = readData();
-    debugPrintln(data);
-	return; 
+bool ESP8266_TCP::setStaticIP( const char* IP, const char* subnet, const char* dg) {
+	char params[55] = {0};
+	sprintf(params, "\"%s\",\"%s\",\"%s\"", IP ,dg , subnet);
+	//debugPrintln(params);
+	//return 1;
+	sendCommand(ESP8266_SET_STA_IP, ESP8266_CMD_SETUP,params); // Send "AT+CIPSTA_CUR"
+	int rsp = readForResponse(RESPONSE_OK, COMMAND_RESPONSE_TIMEOUT);
+	if ( rsp > 0)
+	{
+		debugPrintln(String(esp8266RxBuffer));
+		return true;
+	}
+	
+	return false; 
 }
-*/
+
 // getMode()
 // Input: None
 // Output:
@@ -576,7 +471,7 @@ int ESP8266_TCP::getMode()
 
 int ESP8266_TCP::connect(const char * ssid)
 {
-	connect(ssid, "");
+	return connect(ssid, "");
 }
 
 // connect()
@@ -602,31 +497,6 @@ int ESP8266_TCP::connect(const char * ssid, const char * pwd)
 	
 	return readForResponses(RESPONSE_OK, RESPONSE_FAIL, WIFI_CONNECT_TIMEOUT);
 }
-/*
-bool ESP8266_TCP::setMode(esp8266_wifi_mode mode) {
-	clearBuffer();
-	write("AT+CWMODE=" + String(mode));
-	delay(500);
-	String data = readData();
-	debugPrintln(data);
-	if(data.equals("no change")) {
-		debugPrintln("No Change");
-		return true;
-	} else if(data.equals("OK")) {
-		reset();
-		debugPrintln("OK");
-		return true;
-	}
-	data = readData();
-	debugPrintln(data);
-	if(data.equals("OK")) {
-		reset();
-		debugPrintln("OK");
-		return true;
-	}
-	return false; 
-}
-*/
 // setMode()
 // Input: 1, 2, 3 (ESP8266_MODE_STA, ESP8266_MODE_AP, ESP8266_MODE_STAAP)
 // Output:
@@ -716,7 +586,8 @@ char * ESP8266_TCP::searchBuffer(const char * test)
 	{	//! TODO
 		// If the buffer is full, we need to search from the end of the 
 		// buffer back to the beginning.
-		int testLen = strlen(test);
+		
+		//int testLen = strlen(test);
 		for (int i=0; i<ESP8266_RX_BUFFER_LEN; i++)
 		{
 			
