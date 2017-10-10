@@ -41,28 +41,44 @@ const char SET_ALARM[] = "Set_Alarm";
 const char GET_ALARM[] = "Get_Alarm";
 const char RESET_ALARM[] = "Reset_Alarm";
 const char GET_NEXT_ALARM[] = "Get_Next_Alarm";
+const char GET_CHANNEL[] = "Get_A2D";
+const int analogInPin = A0;  // Analog input pin that the potentiometer is attached to
 
 //Telems
 const String OK = "OK";
 
 class Alarm
 {
-   public:
+  public:
     int sHour;
     int sMinute;
     int eHour;
     int eMinute;
     bool active;
-    Alarm(){};
-    Alarm(int sHour,int sMinute,int eHour,int eMinute,bool active):sHour{sHour},sMinute{sMinute},eHour{eHour},eMinute{eMinute},active{active}{};  
+    Alarm() {};
+    Alarm(int sHour, int sMinute, int eHour, int eMinute, bool active): sHour{sHour}, sMinute{sMinute}, eHour{eHour}, eMinute{eMinute}, active{active} {};
 };
 struct AlarmArray
 {
   Alarm _arr[ALARM_PER_DAY];
+  AlarmArray()
+  {
+    for(int i = 0; i < ALARM_PER_DAY; i++)
+    {
+      _arr[i] = Alarm{0,0,0,0,0};
+    }
+  };
 };
 struct WeekAlarms
 {
   AlarmArray _arr[DAYS_IN_WEEK];
+  WeekAlarms()
+  {
+    for(int i = 0; i < DAYS_IN_WEEK; i++)
+    {
+      _arr[i] = AlarmArray{};
+    }
+  }
 };
 Time nextAlarm{0000, 0, 0, 0, 0, 00, 0};
 Time nextAlarmEnd{0000, 0, 0, 0, 0, 00, 0};
@@ -81,17 +97,12 @@ void setup()
   rtc.writeProtect(false);
   rtc.halt(false);
   delay(3000);
-  // We use Serial1 to interface with ESP8266 
+  // We use Serial1 to interface with ESP8266
   // and use Serial to debugging
   swSerial.begin(9600);
   Serial.begin(9600);
   
-  //Serial.print("freeMemory()=");
-  //Serial.println(freeMemory());
-  
-  //wifi.begin(&swSerial, &Serial, PIN_RESET);
   //init wifi;
-  
   initializeWifi();
   delay(1000);
   connectESP8266();
@@ -99,8 +110,9 @@ void setup()
   displayConnectInfo();
   delay(1000);
   wifi.openTCPServer(8888, 30);
-  
-  printTime(rtc.time(),"Now: ");
+  printTime(rtc.time(), "Now: ");
+  //Serial.print("Mem: ");
+  //Serial.println(freeMemory());
   //load the array from eeprom
   load();
 }
@@ -115,29 +127,29 @@ void errorLoop(int error)
 void turnOn()
 {
   Serial.println(TURN_ON);
-    isActive = true;
-    digitalWrite(PUMP_CONTROL, HIGH); 
+  isActive = true;
+  digitalWrite(PUMP_CONTROL, HIGH);
 }
 void turnOff()
 {
   Serial.println(TURN_OFF);
-    isActive = false;
-    digitalWrite(PUMP_CONTROL, LOW); 
+  isActive = false;
+  digitalWrite(PUMP_CONTROL, LOW);
 }
 void load()
 {
-     Serial.println(LOAD);
-     EEPROM.get( eeAddress, weekArr );
-     findNextAlarm(false);
+  Serial.println(LOAD);
+  EEPROM.get( eeAddress, weekArr );
+  findNextAlarm(false);
 }
 void save()
 {
-    Serial.println(SAVE);
-    EEPROM.put( eeAddress, weekArr );
-    findNextAlarm(false);
+  Serial.println(SAVE);
+  EEPROM.put( eeAddress, weekArr );
+  findNextAlarm(false);
 }
 
-void sendTime(Time& t,int& source)
+void sendTime(Time& t, int& source)
 {
   memset(buf, 0, sizeof(buf));
   const String day = dayAsString(t.day);
@@ -148,54 +160,54 @@ void sendTime(Time& t,int& source)
            t.hr, t.min, t.sec);
   Serial.println("In send Time");
   Serial.println(buf);
-  wifi.send(source,String(buf));
+  wifi.send(source, String(buf));
 }
 
 int dispatcher(String& data, int source)
 {
   //Serial.print("freeMemory()=");
   //Serial.println(freeMemory());
-  if( data == TURN_ON )
+  if ( data == TURN_ON )
   {
-  turnOn();
-  return 1;
+    turnOn();
+    return 1;
   }
-  if( data == TURN_OFF )
+  if ( data == TURN_OFF )
   {
     turnOff();
-    return 1; 
+    return 1;
   }
-  if( data == ECHO )
+  if ( data == ECHO )
   {
     Serial.println(ECHO);
-    wifi.send(source,OK);
+    wifi.send(source, OK);
     return 1;
   }
   if (data == GET_TIME)
-  { 
+  {
     //printTime(rtc.time(),"Current time: ");
-  Time curTime = rtc.time();
-    sendTime(curTime,source);
+    Time curTime = rtc.time();
+    sendTime(curTime, source);
     return 1;
   }
-  if( data.substring(0,strlen(SET_TIME)) == SET_TIME )
+  if ( data.substring(0, strlen(SET_TIME)) == SET_TIME )
   {
     Serial.println(SET_TIME);
     //Format Set_Time:[YEAR-MONTH-DAY] [HH]:[MM] [WEEKDAY] : Set_Time:[4]-[2]-[2] [2]:[2] [1]
     short year = strlen(SET_TIME) + 1;
     short month = year + 1 + 4;
     short day = month + 1 + 2;
-    short hour = day +1 + 2;
+    short hour = day + 1 + 2;
     short minute = hour + 1 + 2;
     //short //second = minute + 2;
     short dayWeek = minute + 1 + 2;
-    Time t(data.substring(year, month).toInt(), data.substring(month,day ).toInt(), data.substring(day, hour).toInt(), data.substring(hour, minute).toInt(), data.substring(minute, dayWeek).toInt(), 00, data.substring(dayWeek, dayWeek+2).toInt());
-    printTime(t,"Got time: ");
+    Time t(data.substring(year, month).toInt(), data.substring(month, day ).toInt(), data.substring(day, hour).toInt(), data.substring(hour, minute).toInt(), data.substring(minute, dayWeek).toInt(), 00, data.substring(dayWeek, dayWeek + 2).toInt());
+    printTime(t, "Got time: ");
     rtc.time(t);
-    wifi.send(source,OK);
+    wifi.send(source, OK);
     return 1;
   }
-  
+
   if (data == SAVE)
   {
     save();
@@ -206,7 +218,7 @@ int dispatcher(String& data, int source)
     load();
     return 1;
   }
-    if (data == RESET_ALARM)
+  if (data == RESET_ALARM)
   {
     Serial.println(RESET_ALARM);
     weekArr = WeekAlarms{};
@@ -215,27 +227,27 @@ int dispatcher(String& data, int source)
     turnOff();
     return 1;
   }
-  if (data.substring(0,strlen(GET_ALARM)) == GET_ALARM)
+  if (data.substring(0, strlen(GET_ALARM)) == GET_ALARM)
   {
     //Format Get_Alarm:DAY SLOT ; Get_Alarm:[1] [1]
 
-    short day = data.substring(strlen(GET_ALARM) + 1,strlen(GET_ALARM)+ 1 + 1).toInt() - 1;
+    short day = data.substring(strlen(GET_ALARM) + 1, strlen(GET_ALARM) + 1 + 1).toInt() - 1;
     short slot = data.substring(strlen(GET_ALARM) + 3, strlen(GET_ALARM) + 5 ).toInt();
-    Serial.println("day = "+ String(day));
-    Serial.println("slot = "+ String(slot));
+    Serial.println("day = " + String(day));
+    Serial.println("slot = " + String(slot));
     memset(buf, 0, sizeof(buf));
     snprintf(buf, sizeof(buf), "%02d:%02d %02d:%02d %01d",
-           weekArr._arr[day]._arr[slot].sHour,
-           weekArr._arr[day]._arr[slot].sMinute,
-           weekArr._arr[day]._arr[slot].eHour,
-           weekArr._arr[day]._arr[slot].eMinute,
-           weekArr._arr[day]._arr[slot].active);
-     wifi.send(source,buf);
-     return 1;
+             weekArr._arr[day]._arr[slot].sHour,
+             weekArr._arr[day]._arr[slot].sMinute,
+             weekArr._arr[day]._arr[slot].eHour,
+             weekArr._arr[day]._arr[slot].eMinute,
+             weekArr._arr[day]._arr[slot].active);
+    wifi.send(source, buf);
+    return 1;
   }
-  if (data.substring(0,strlen(SET_ALARM)) == SET_ALARM)
+  if (data.substring(0, strlen(SET_ALARM)) == SET_ALARM)
   {
-     Serial.println(SET_ALARM);
+    Serial.println(SET_ALARM);
     //Format SET_ALARM:DAY SLOT [HH]:[MM] [HH]:[MM] ACTIVE; SET_ALARM:[1] [1] [2]:[2] [2]:[2] [1]
     short day = strlen(SET_ALARM) + 1;
     short slot = day + 1 + 1;
@@ -244,22 +256,27 @@ int dispatcher(String& data, int source)
     short eHour = sMinute + 1 + 2;
     short eMinute = eHour + 1 + 2;
     short active = eMinute + 1 + 2;
-    weekArr._arr[data.substring(day, slot).toInt() - 1]._arr[data.substring(slot, sHour).toInt()] = Alarm{data.substring(sHour, sMinute).toInt(),data.substring(sMinute,eHour ).toInt(),data.substring(eHour,eMinute ).toInt(),data.substring(eMinute,active ).toInt(),data.substring(active,active + 1 ).toInt()};
-    wifi.send(source,OK);
+    weekArr._arr[data.substring(day, slot).toInt() - 1]._arr[data.substring(slot, sHour).toInt()] = Alarm{data.substring(sHour, sMinute).toInt(), data.substring(sMinute, eHour ).toInt(), data.substring(eHour, eMinute ).toInt(), data.substring(eMinute, active ).toInt(), data.substring(active, active + 1 ).toInt()};
+    wifi.send(source, OK);
     findNextAlarm(false);
     return 1;
   }
   if (data == GET_NEXT_ALARM)
   {
 
-    printTime(nextAlarm,"Next Alarm: ");
-    sendTime(nextAlarm,source );
+    printTime(nextAlarm, "Next Alarm: ");
+    sendTime(nextAlarm, source );
     return 1;
   }
-  return 0;  
+  if (data == GET_CHANNEL)
+  {
+    wifi.send(source,String(analogRead(analogInPin)));
+    return 1;
+  }
+  return 0;
 }
 void loop()
-{  
+{
   // Check for any data has coming to ESP8266
   bool dataState = wifi.isNewDataComing();
   String command;
@@ -268,21 +285,21 @@ void loop()
   {
     turnOn();
   }
-   if (isActive && curTime == nextAlarmEnd)
+  if (isActive && curTime == nextAlarmEnd)
   {
     turnOff();
-    findNextAlarm(false); 
+    findNextAlarm(false);
   }
-  if(dataState)
+  if (dataState)
   {
-        //Serial.print("freeMemory()=");
-        //Serial.println(freeMemory());
-        Serial.println("ID : " + String(wifi.getId()));
-        command = wifi.getMessage();
-        Serial.println("Message : " + command);
-        dispatcher(command,wifi.getId()); 
-        //Serial.print("AfterfreeMemory()=");
-        //Serial.println(freeMemory());
+    //Serial.print("freeMemory()=");
+    //Serial.println(freeMemory());
+    Serial.println("ID : " + String(wifi.getId()));
+    command = wifi.getMessage();
+    Serial.println("Message : " + command);
+    dispatcher(command, wifi.getId());
+    //Serial.print("AfterfreeMemory()=");
+    //Serial.println(freeMemory());
   }
 }
 
@@ -299,74 +316,83 @@ String dayAsString(const Time::Day day) {
   return "(unknown day)";
 }
 
-void printTime(Time t,String txt) {
+void printTime(Time t, String txt) {
   // Get the current time and date from the chip.
   // Name the day of the week.
   //char buf[50];
   const String day = dayAsString(t.day);
   // Format the time and date and insert into the temporary buffer.
   snprintf(buf, sizeof(buf), "%s %s %04d-%02d-%02d %02d:%02d:%02d",
-           txt.c_str(),day.c_str(),
+           txt.c_str(), day.c_str(),
            t.yr, t.mon, t.date,
            t.hr, t.min, t.sec);
   Serial.println(buf);
 }
 
-
+void printAllAlarms()
+{
+  Time curTime = rtc.time();
+  for (int i = 0; i < DAYS_IN_WEEK; ++i)
+  {
+    for (int j = 0; j < ALARM_PER_DAY ; ++j)
+    {
+      Time temp(curTime.yr, curTime.mon, curTime.date, weekArr._arr[i]._arr[j].sHour, weekArr._arr[i]._arr[j].sMinute, 00, i + 1);
+      printTime(temp, "Alarm at " + String(i) + "at slot " + String(j));
+    }
+  }
+}
 void findNextAlarm(bool reverse)
 {
   //Serial.println("In find next Alarm");
   Time curTime = rtc.time();
-  long curVal = 60*24*7;
+  long curVal = 60 * 24 * 7;
   bool isReverseNeeded = true;
   if (reverse)
   {
-      isReverseNeeded = false;
-      curVal = 0;
+    isReverseNeeded = false;
+    curVal = 0;
   }
   for (int i = 0; i < DAYS_IN_WEEK; ++i)
   {
     for (int j = 0; j < ALARM_PER_DAY ; ++j)
     {
-        if (weekArr._arr[i]._arr[j].active)
+      if (weekArr._arr[i]._arr[j].active)
+      {
+        Time temp(curTime.yr, curTime.mon, curTime.date, weekArr._arr[i]._arr[j].sHour, weekArr._arr[i]._arr[j].sMinute, 00, i + 1);
+        long diff = curTime - temp;
+        if (reverse)
         {
-          Time temp(curTime.yr, curTime.mon, curTime.date, weekArr._arr[i]._arr[j].sHour, weekArr._arr[i]._arr[j].sMinute, 00, i + 1);
-          long diff = curTime - temp;
-          if (reverse)
-          {
-            diff = abs(diff);
-          } 
-          if (!reverse && diff > 0 && diff < curVal)
-          {
-            Serial.println("Found One");
-            isReverseNeeded = false;
-            curVal = diff;
+          diff = abs(diff);
+        }
+        if (!reverse && diff > 0 && diff < curVal)
+        {
+          Serial.println("Found One");
+          isReverseNeeded = false;
+          curVal = diff;
+          if (!isActive)
+          { 
             nextAlarm = temp;
             nextAlarmEnd = Time(curTime.yr, curTime.mon, curTime.date, weekArr._arr[i]._arr[j].eHour, weekArr._arr[i]._arr[j].eMinute, 00, i + 1);
-            if (isActive)
-            {
-                  turnOff();
-            } 
           }
-          else if(reverse && diff > curVal)
+        }
+        else if (reverse && diff > curVal)
+        {
+          curVal = diff;
+          if (!isActive)
           {
-            curVal = diff;
-            nextAlarm = temp;
-            nextAlarmEnd = Time(curTime.yr, curTime.mon, curTime.date, weekArr._arr[i]._arr[j].eHour, weekArr._arr[i]._arr[j].eMinute, 00, i + 1);
-            if (isActive)
-            {
-                  turnOff();
-            } 
+          nextAlarm = temp;
+          nextAlarmEnd = Time(curTime.yr, curTime.mon, curTime.date, weekArr._arr[i]._arr[j].eHour, weekArr._arr[i]._arr[j].eMinute, 00, i + 1);
           }
-        } 
-    } 
+        }
+      }
+    }
   }
   if (isReverseNeeded)
   {
     findNextAlarm(true);
     return;
   }
-  printTime(nextAlarm,"Next alarm : ");
+  printTime(nextAlarm, "Next alarm : ");
 }
 
 
@@ -414,7 +440,7 @@ void connectESP8266()
   Serial.println(F("Mode was station"));
 
   //set static IP;
-   wifi.setStaticIP(IP,SUBNET,DG);
+  wifi.setStaticIP(IP, SUBNET, DG);
   delay(1000);
   // esp8266.status() indicates the ESP8266's WiFi connect
   // status.
@@ -424,7 +450,7 @@ void connectESP8266()
   retVal = wifi.status();
   if (retVal == ESP8266_STATUS_CONNECTED || retVal == ESP8266_STATUS_NOWIFI)
   {
-    
+
     Serial.println("No connection, connecting to " + String(mySSID));
     // esp8266.connect([ssid], [psk]) connects the ESP8266
     // to a network.
@@ -442,8 +468,8 @@ void connectESP8266()
     }
   }
   Serial.println(F("Connection good"));
- 
-  
+
+
 }
 
 void displayConnectInfo()
@@ -474,4 +500,5 @@ void displayConnectInfo()
     Serial.println(F("Error getting IP"));
   }
 }
+
 
