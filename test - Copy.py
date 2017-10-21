@@ -10,8 +10,8 @@ def keep_alive(s):
 def shit(s):
 	while 1:
 		print(s.recv(2048))
-#TCP_IP = '192.168.1.6'
-TCP_IP = '192.168.2.200'
+TCP_IP = '192.168.1.200'
+#TCP_IP = '192.168.2.200'
 
 TCP_PORT = 8888
 BUFFER_SIZE = 1024
